@@ -1,0 +1,18 @@
+services:
+  myauth:
+    image: python:auth
+    container_name: auth
+    hostname: auth.myapps.localhost    
+    networks:
+      - net
+    ports:
+      - "8000:8000"
+    volumes:
+      - "/etc/localtime:/etc/localtime:ro"
+    environment:
+      - LOGIN_EXPIRY=30
+networks:
+  net:
+    driver: bridge    
+    external: true
+    

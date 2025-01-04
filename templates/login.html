@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login Page</title>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
+</head>
+<body>
+    <div class="container">
+        <div class="row">
+            <div class="col-md-4 col-md-offset-4"><br/><br/><br/><br/><br/>
+                <h2 class="text-center">Login</h2>
+
+                {%if(firstLogin)%}
+                <form method="post" action="/register">
+                    <div class="form-group">
+                        <label for="username">Username</label>
+                        <input type="text" class="form-control" id="uname" name="uname" placeholder="Enter username" value="{{username}}" readonly>
+                    </div>
+                    
+                {%else%}
+                <form method="post" action="/login">
+                    <div class="form-group">
+                        <label for="username">Username</label>
+                        <input type="text" class="form-control" id="uname" name="uname" placeholder="Enter username">
+                    </div>
+                {%endif%}
+                   
+
+                    <div class="form-group">
+                        <label for="password">Password</label>
+                        <input type="password" class="form-control" id="passw" name="passw" placeholder="Enter password / Leave blank on first session">
+                    </div>
+                    {%if(firstLogin)%}
+                    <div class="form-group">
+                        <label for="confirmPassword">Confirm Password</label>
+                        <input type="password" class="form-control" id="confirmPassword" name="confirmPassword" placeholder="Retype password">
+                    </div>
+                    
+                    <script>
+                        document.getElementById('confirmPassword').addEventListener('input', function() {
+                            const password = document.getElementById('passw').value;
+                            const confirmPassword = this.value;
+                            const message = document.getElementById('message');
+
+                            if (password === confirmPassword) {
+                                message.textContent = 'Passwords match';
+                                message.style.color = 'green';
+                            } else {
+                                message.textContent = 'Passwords do not match';
+                                message.style.color = 'red';
+                            }
+                        });
+                    </script>
+                    {%endif%}
+                    <div class="form-group">
+                        <div id="message">{{message}}               
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-block">
+                        {%if(firstLogin)%}
+                        Register
+                        {%else%}
+                        Login
+                        {%endif%}
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+ 
+    
+
+
+
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
+</body>
+</html>
