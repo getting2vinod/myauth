@@ -12,7 +12,10 @@
             <div class="col-md-4 col-md-offset-4"><br/><br/><br/><br/><br/>
                 <h2 class="text-center">Warning</h2>                
                     <div class="form-group text-center">
-                        <div id="message">{{message}} - {{token}}              
+                        <div id="message">{{message}} <br/>
+                            {%if msgtype == "logout"%}
+                                <a href="{{backurl}}">Go Back in</a>
+                            {%endif%}             
                         </div>
                     </div>
                 

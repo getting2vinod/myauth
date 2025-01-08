@@ -10,7 +10,8 @@ services:
     volumes:
       - "/etc/localtime:/etc/localtime:ro"
     environment:
-      - LOGIN_EXPIRY=30
+      - LOGIN_EXPIRY=30 #days
+      - APP_ROUTE=auth #use only when routed through nginx.
 networks:
   net:
     driver: bridge    

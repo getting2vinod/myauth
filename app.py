@@ -1,4 +1,4 @@
-from flask import Flask, render_template, redirect, url_for, request, session, g, send_from_directory
+from flask import Flask, render_template, redirect, url_for, request, session, g, current_app
 from werkzeug.security import generate_password_hash, check_password_hash
 from googleapiclient.discovery import build
 from google.oauth2 import service_account
@@ -32,6 +32,10 @@ app = Flask(__name__)
 app.secret_key = "thisismyveryloooongsecretkey"
 logging.basicConfig(format='%(levelname)s:%(message)s', level=logging.DEBUG)
 
+route_prefix = os.getenv('APP_ROUTE') or ""
+
+if(route_prefix != ""):
+    route_prefix = "/" + route_prefix
 
 # with open(config_file) as json_file:
 #     config = json.load(json_file)
@@ -43,6 +47,8 @@ if(sessionExpiryDays):
 sessionExpiryTime = 5
 
 logging.debug("SED : %s, SET:%s",sessionExpiryDays,sessionExpiryTime)
+
+logging.debug("Route Prefix : %s",route_prefix)
 
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
 SERVICE_ACCOUNT_FILE = './json/myutils-437714-bd0d0a3e77bd.json'  # Update this path
@@ -183,18 +189,19 @@ def encrypt(txt):
 
 @app.route('/')
 def default():
-    return render_template('error.html',message="Invalid login or App not registered : ",token=session.get("token"))
+    logging.debug("Prefix: " + route_prefix)
+    return render_template('error.html',message="Invalid login or App not registered : ",token=session.get("token"),routePrefix=route_prefix,msgtype="error")
 
 @app.route('/logout')
 def logout():
     if session.get("token"):
-        removeToken(session.get("token"))
-    return render_template('error.html',message="Logout successful.",token=session.get("token"))
+        removeToken(session.get("token")) #removes session as well
+    return render_template('error.html',message="Logout successful.",token=session.get("token"),routePrefix=route_prefix, backurl=request.args.get("callback"),msgtype="logout")
 
 @app.route('/favicon.ico')
 def favicon():
-    return send_from_directory(os.path.join(app.root_path, 'static/images'),
-                               'favicon.png', mimetype='image/vnd.microsoft.icon')
+    return current_app.send_static_file("images/favicon.png") #send_from_directory(os.path.join(app.root_path, 'static/images'),
+            #                   'favicon.png', mimetype='image/vnd.microsoft.icon')
 
 @app.route("/sessioncheck")
 def sessioncheck():
@@ -215,7 +222,7 @@ def signon():
     #check the session if valid. Could be a call from another application.
     token = session.get("token")
     session["redirect-to"] = request.args.get("callback") or request.url #needed after /login post.
-
+    logging.debug("Prefix: " + route_prefix)
     if token:
         urow = getToken(token)
         #there is a session, check if its not expired.
@@ -223,16 +230,18 @@ def signon():
                                         datetime.datetime.now()):   #valid session found return back with payload.
             upsertToken(token, urow[1]) #update expiry
             k = secrets.token_hex(16)
-            upsertKeytoToken(k,token)            
+            upsertKeytoToken(k,token) 
+            logging.debug("Token updated. Redirecting to %s",session["redirect-to"])           
             return redirect(session["redirect-to"] + "?singleuse=" + k) #callback to application
-        
-    return render_template('login.html') #send to login page
+    logging.debug("Rendering login")
+    return render_template('login.html',routePrefix=route_prefix) #send to login page
 
 #will be hit directly from the client. 
 @app.route("/login", methods=['POST'])
 def login():
     p = request.form.get("passw")
     u = request.form.get("uname")
+    cb = request.form.get("callback")
     u = u.lower()
     profileRow = getUserProfile(u)
     if(len(profileRow) > 0):
@@ -240,7 +249,7 @@ def login():
             #to forward hash and store in gsheet
             if(profileRow[0][2] == ''): #password blank
                 #for reg
-                return render_template('login.html', username=u, firstLogin=True) #for registration
+                return render_template('login.html', username=u, firstLogin=True, routePrefix=route_prefix) #for registration
             else:
                 if(encrypt(p) == profileRow[0][2]): #check password
                     #password matched.
@@ -253,20 +262,21 @@ def login():
                     #upsert_by_name(profileRow[0][1],session["x-token"]) #update local file
                     #pl = urllib.parse.quote({"singleuse":k})           
                     if(session.get("redirect-to")):
-                        try:                      
+                        try:  
+                            logging.debug("Redirecting to %s -",session["redirect-to"])                    
                             return redirect(session["redirect-to"]+ "?singleuse="+k) #should reach a callback route
                         except:
-                            print("Single Use token: " + k)
-                            return render_template('error.html', message="Could not reach callback url. " + session["redirect-to"]) 
+                            logging.debug("Single Use token: " + k)
+                            return render_template('error.html', message="Could not reach callback url. " + session["redirect-to"],routePrefix=route_prefix) 
                     else:
                         return redirect("/") #app redirect to be setup
                 else:
                     #password error
-                    return render_template('login.html', username='', firstLogin=False, loginFailed=True, message="Invalid username or password")
+                    return render_template('login.html', username='', firstLogin=False, loginFailed=True, message="Invalid username or password",routePrefix=route_prefix)
         else: #for reg
-            return render_template('login.html', username=u, firstLogin=True, loginFailed=False, message="")
+            return render_template('login.html', username=u, firstLogin=True, loginFailed=False, message="",routePrefix=route_prefix)
     else: 
-        return render_template('login.html', username='', firstLogin=False, loginFailed=True, message="Invalid username or password")
+        return render_template('login.html', username='', firstLogin=False, loginFailed=True, message="Invalid username or password",routePrefix=route_prefix)
 
 #is a server - server api call
 @app.route('/validate/<token>')
