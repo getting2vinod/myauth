@@ -9,6 +9,8 @@ services:
       - "8000:8000"
     volumes:
       - "/etc/localtime:/etc/localtime:ro"
+      - ./templates:/app/templates
+      - ./app.py:/app/app.py
     environment:
       - LOGIN_EXPIRY=30 #days
       - APP_ROUTE=auth #use only when routed through nginx.

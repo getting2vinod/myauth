@@ -242,15 +242,16 @@ def login():
     p = request.form.get("passw")
     u = request.form.get("uname")
     cb = request.form.get("callback")
-    u = u.lower()
+    u = u.lower()    
     profileRow = getUserProfile(u)
     if(len(profileRow) > 0):
         if(len(profileRow[0]) > 2): #password hash found
             #to forward hash and store in gsheet
-            if(profileRow[0][2] == ''): #password blank
+            if(profileRow[0][2] == '' and p == ''): #password blank
                 #for reg
                 return render_template('login.html', username=u, firstLogin=True, routePrefix=route_prefix) #for registration
             else:
+                logging.debug("Enc pw: %s and rcvd pw: %s",encrypt(p),profileRow[0][2])
                 if(encrypt(p) == profileRow[0][2]): #check password
                     #password matched.
                     token = secrets.token_hex(16)
@@ -277,7 +278,7 @@ def login():
             return render_template('login.html', username=u, firstLogin=True, loginFailed=False, message="",routePrefix=route_prefix)
     else: 
         return render_template('login.html', username='', firstLogin=False, loginFailed=True, message="Invalid username or password",routePrefix=route_prefix)
-
+    
 #is a server - server api call
 @app.route('/validate/<token>')
 def validate(token):
@@ -295,6 +296,52 @@ def validate(token):
     else:
         data["success"] = False
     return json.dumps(data)
+
+@app.route("/register", methods=['POST'])
+def register():
+    p = request.form.get("passw")
+    u = request.form.get("uname")
+    cb = request.form.get("callback")
+    u = u.lower()
+    
+    service = build('sheets', 'v4', credentials=app.creds)
+    profileRow = getUserProfile(u)
+
+    if(p != ""):
+        if(len(profileRow) > 0):
+            ui = profileRow[0][0]
+            p = encrypt(p)
+            values = [[ui, u, p,'',datetime.datetime.now().strftime("%m/%d/%Y %H:%M:%S")]]  
+            range_name = f'Auth!{0}{ui}:{4}{ui}' 
+            body = {
+                'values': values
+            }
+            service.spreadsheets().values().update(
+                spreadsheetId=AUTH_SHEET_ID,
+                range=range_name,
+                valueInputOption='RAW',
+                body=body
+            ).execute()
+            token = secrets.token_hex(16)
+            upsertToken(token, u) #generate token
+            session["token"] = token
+            session["username"] = u
+            k = secrets.token_hex(16) #generating single use key
+            upsertKeytoToken(k,token)
+            #upsert_by_name(profileRow[0][1],session["x-token"]) #update local file
+            #pl = urllib.parse.quote({"singleuse":k})           
+            if(session.get("redirect-to")):
+                try:  
+                    logging.debug("Reg.Redirecting to %s -",session["redirect-to"])                    
+                    return redirect(session["redirect-to"]+ "?singleuse="+k) #should reach a callback route
+                except:
+                    logging.debug("Reg. Single Use token: " + k)
+                    return render_template('error.html', message="Could not reach callback url. " + session["redirect-to"],routePrefix=route_prefix) 
+            else:
+                return redirect("/") #app redirect to be setup
+        else:
+            return render_template('login.html', username='', firstLogin=True, loginFailed=True, message="Error Registering. Check inputs and try again later.",routePrefix=route_prefix )
+    return render_template('login.html', username=u, firstLogin=True, loginFailed=True, message="Error Registering. Check inputs and try again later." ,routePrefix=route_prefix)
 
 @app.route('/gettokenfromkey/<privatekey>/<key>', methods=["GET"])
 def gettokenfromkey(privatekey, key):
